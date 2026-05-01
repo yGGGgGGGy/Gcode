@@ -1,0 +1,36 @@
+[Unit]
+Description=Gcode MCP Server — 智能运维执行层（MCP协议+Tool执行）
+After=network.target gcode-security-guard.service
+Wants=gcode-security-guard.service
+
+[Service]
+Type=simple
+User=gcode
+Group=gcode
+WorkingDirectory=/opt/gcode
+ExecStart=/opt/gcode/.venv/bin/python -m gcode.mcp.server
+Restart=on-failure
+RestartSec=5
+
+# 安全限制
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/gcode/data /run/gcode
+PrivateTmp=yes
+
+# 系统调用白名单（seccomp）
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# 资源限制
+MemoryMax=512M
+CPUQuota=50%
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gcode-mcp
+
+[Install]
+WantedBy=multi-user.target

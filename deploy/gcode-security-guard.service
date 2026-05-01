@@ -1,0 +1,32 @@
+[Unit]
+Description=Gcode Security Guard — 智能运维安全层（意图过滤+审计）
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=gcode
+Group=gcode
+WorkingDirectory=/opt/gcode
+ExecStart=/opt/gcode/.venv/bin/python -m src.api.server
+Restart=on-failure
+RestartSec=5
+
+# 安全限制
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/gcode/data /run/gcode
+PrivateTmp=yes
+
+# 资源限制
+MemoryMax=1G
+CPUQuota=80%
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gcode-guard
+
+[Install]
+WantedBy=multi-user.target
