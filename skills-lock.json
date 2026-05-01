@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "skills": {
+    "caveman": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/caveman/SKILL.md",
+      "computedHash": "934433479903febc585bf6deb5f0cebc63137e3f86b7babe0aab1ecb94d6d7a4"
+    },
+    "diagnose": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnose/SKILL.md",
+      "computedHash": "15939a26f86edec2d4862042b8564e5a062cb81d04e047a0cea6305c8830b5f5"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea"
+    },
+    "grill-with-docs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "computedHash": "31a5b1ae116558bf7d3f633f442835f54bd7645923d4f45c7823e52a97317666"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "c77b86b4332919499608f9af1880074e1fec65a59b95c70c27a9f39cd137865e"
+    },
+    "lark-approval": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "392e3251415a92a398eee87d03c9d569b91438b57895b7eac81137ec7cbd1036"
+    },
+    "lark-attendance": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "45c8ec357a987fa755b57a757ad01d00c32a5a6e3eb96d3902d8851aad6f8528"
+    },
+    "lark-base": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "cfc98df2711e0caa4e57e974395e786485c8e34cadffe10425368b850c27d6fa"
+    },
+    "lark-calendar": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "e14f6b5c10cd7cfb4d328eaca0a98fb9456261698b19944539970f964a2f4e48"
+    },
+    "lark-contact": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "ea5ef8691a0fd230ad4f26a6c6b0e755617442ac0d63b21a182fc6f50e41bdce"
+    },
+    "lark-doc": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "48d0c236dd4b88fd85c9d062c67843aa74496bff9ad2cb8831c0a97ff69c3f8e"
+    },
+    "lark-drive": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "f37b735d15e5e2725976e54e08829f3e95064df4c3ce318f598b0a62154d4498"
+    },
+    "lark-event": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "17eebf0ac9ff14763f120e17b2285fdb774ad5dce3bdfdcafd68ca10bfcebbea"
+    },
+    "lark-im": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "faebafd1f22578ac9af9d4ed902108b1e5d3463a4c97124a14527ff39792781a"
+    },
+    "lark-mail": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "b096b1c24f6b4c0cd2b328c7d8d9b9e6f57c075ccdc784eae4cd4cfc6610bde6"
+    },
+    "lark-markdown": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "badcc618249ac64300ed320f2a824a0498806ad3e8101c136623ca87803bb423"
+    },
+    "lark-minutes": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "b0a9d9adf4663e58f8730509b0a8d2aa974c123123492d873fb32dbcfb11d4e4"
+    },
+    "lark-okr": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "5072bc36eeff28c4aae9d22fd90ff2f7912e154866d6e7da6f41f3081bb58e5b"
+    },
+    "lark-openapi-explorer": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "a49ad0ad41b4bdeec9f5ccae6d5f6fba7b128fae0b0f428fde7df94cda6e6555"
+    },
+    "lark-shared": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "4ce1b2bc44eb7e20338631037046d9e1468ba941a2a02a364fab990f06c60750"
+    },
+    "lark-sheets": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "685a059b14f5147155a7960040b41c1def6305881c28adc7692b4b51311c5777"
+    },
+    "lark-skill-maker": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "78e2f8725d2525c846bd1fd07d82bdc718be4c382b9971d3d74ffa14d3e2b7c5"
+    },
+    "lark-slides": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "b3786f2d4a35685ebc27a088573f7094b75383e678a95f3430d4f91e96de4125"
+    },
+    "lark-task": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "309845270fc20a79a67d82e03abc425d62f3b8700343d6137980cb54db5228d5"
+    },
+    "lark-vc": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "ab3106b574556560b50738ea4d9ff206e7fc41068b9f9edba9d8d43c3e871d1b"
+    },
+    "lark-whiteboard": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "84315819c3e54db429fc5f0eae02a45beea3d178f9c40a2583479b4fc7e0cea2"
+    },
+    "lark-wiki": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "31c035b59622bee8cc798f5342dcdccfc2d56e9a080bc2ebfb64653656a32696"
+    },
+    "lark-workflow-meeting-summary": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "9e1c8e88859457895cb84d31b6f7c787ab02e6bb8197decbe410dca21653f47d"
+    },
+    "lark-workflow-standup-report": {
+      "source": "open.feishu.cn",
+      "sourceType": "well-known",
+      "computedHash": "37664a511e12ecab3fb8eba7a27a42ca35170668b5eaec6b5798229cdebb98a0"
+    },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "computedHash": "3a32f8f1ed8160c9d286a2aabe88ee9b884c6f3f88a7a6c47b7d5d552c959587"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "15a7b5e36383ebadb2dec5e586679e55e9663d292da418926b8da6fc0ef27d84"
+    },
+    "to-issues": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-issues/SKILL.md",
+      "computedHash": "73a91f30784523aa59ec9b02769576ebfc738e2cd5ad8f6441076031f0a5d5ac"
+    },
+    "to-prd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-prd/SKILL.md",
+      "computedHash": "fd8c259f9c44eff08e29a1a2fc71a806a3568d279a55387a361f78620b10f2aa"
+    },
+    "triage": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/triage/SKILL.md",
+      "computedHash": "2b6efb6da12d92551772fcc04acf331f4e0e6f7bd9d4cb23ce0b301e0b128feb"
+    },
+    "write-a-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/write-a-skill/SKILL.md",
+      "computedHash": "b44d8aab2ead83c716e01af4c9a24ccc4575ce70ad58ec4f1749fb88c9cc82ba"
+    },
+    "zoom-out": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/zoom-out/SKILL.md",
+      "computedHash": "8357aeaece3b709c442eab67e64b86844e05e2f1ea95b109565eba50b6def36e"
+    }
+  }
+}
