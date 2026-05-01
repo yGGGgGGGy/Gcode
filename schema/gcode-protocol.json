@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gcode Protocol — m1↔dp1 Interface Contract",
+  "description": "麒麟OS智能运维Agent内部协议。m1(安全层 / Unix Domain Socket Server) ↔ dp1(执行层 / Client)。",
+  "version": "0.1.0",
+
+  "transport": {
+    "type": "Unix Domain Socket",
+    "path": "/run/gcode/gcode.sock",
+    "format": "newline-delimited JSON (ndjson)",
+    "auth": "SO_PEERCRED (UID/GID check)"
+  },
+
+  "definitions": {
+    "ToolCallRequest": {
+      "description": "m1 → dp1: 请求执行一个Tool",
+      "type": "object",
+      "required": ["request_id", "tool_name", "parameters", "user_id", "session_id", "permission_level"],
+      "properties": {
+        "request_id": {"type": "string", "format": "uuid", "description": "唯一请求ID，贯穿全链路"},
+        "tool_name": {"type": "string", "description": "MCP Tool名称，如 read_file / systemctl_status"},
+        "parameters": {"type": "object", "description": "Tool参数"},
+        "user_id": {"type": "string", "description": "执行用户（Linux UID映射）"},
+        "session_id": {"type": "string", "format": "uuid"},
+        "permission_level": {
+          "type": "string",
+          "enum": ["read_only", "read_write", "admin"],
+          "description": "m1意图过滤后赋予的最小权限级别"
+        },
+        "timestamp": {"type": "string", "format": "date-time"}
+      }
+    },
+
+    "ToolCallResponse": {
+      "description": "dp1 → m1: Tool执行结果",
+      "type": "object",
+      "required": ["request_id", "status"],
+      "properties": {
+        "request_id": {"type": "string", "format": "uuid"},
+        "status": {
+          "type": "string",
+          "enum": ["success", "error", "denied"],
+          "description": "denied = dp1执行层约束拦截"
+        },
+        "result": {"type": "object"},
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {"type": "string"},
+            "message": {"type": "string"}
+          }
+        },
+        "exit_code": {"type": "integer"},
+        "duration_ms": {"type": "integer"},
+        "stdout": {"type": "string"},
+        "stderr": {"type": "string"}
+      }
+    },
+
+    "IntentClassification": {
+      "description": "m1内部: Qwen2.5-0.5B意图分类结果",
+      "type": "object",
+      "required": ["query", "intent", "confidence"],
+      "properties": {
+        "query": {"type": "string", "description": "用户原始自然语言输入"},
+        "intent": {
+          "type": "string",
+          "enum": ["safe", "unsafe", "needs-review"],
+          "description": "safe→放行; unsafe→拒绝; needs-review→人工审核"
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "categories": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "多标签分类: file_read, file_write, system_info, process_mgmt, network, user_mgmt, package_mgmt, service_mgmt"
+        },
+        "model": {"type": "string", "default": "qwen2.5-0.5b"}
+      }
+    },
+
+    "AuditRecord": {
+      "description": "m1审计层: 全链路记录写入SQLite",
+      "type": "object",
+      "required": ["audit_id", "timestamp", "user_id", "session_id", "original_query", "intent_result"],
+      "properties": {
+        "audit_id": {"type": "string", "format": "uuid"},
+        "timestamp": {"type": "string", "format": "date-time"},
+        "user_id": {"type": "string"},
+        "session_id": {"type": "string", "format": "uuid"},
+        "original_query": {"type": "string"},
+        "intent_result": {"type": "string", "enum": ["safe", "unsafe", "needs-review"]},
+        "intent_confidence": {"type": "number"},
+        "intent_categories": {"type": "array", "items": {"type": "string"}},
+        "tools_called": {"type": "array", "items": {"type": "string"}},
+        "request_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+        "results_summary": {"type": "string"},
+        "final_status": {"type": "string", "enum": ["success", "rejected_by_intent", "rejected_by_executor", "execution_error"]},
+        "chain_of_thought": {"type": "string", "description": "完整思维链，用于事后审计"},
+        "duration_total_ms": {"type": "integer"}
+      }
+    },
+
+    "MCPToolDefinition": {
+      "description": "dp1向m1注册的Tool定义（启动时交换）",
+      "type": "object",
+      "required": ["name", "description", "inputSchema", "permission_required"],
+      "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "inputSchema": {"type": "object", "$ref": "https://json-schema.org/draft/2020-12/schema"},
+        "permission_required": {"type": "string", "enum": ["read_only", "read_write", "admin"]}
+      }
+    }
+  },
+
+  "handshake": {
+    "description": "dp1连接m1后立即发送Tool清单",
+    "message": "ToolList",
+    "type": "object",
+    "required": ["server_id", "version", "tools"],
+    "properties": {
+      "server_id": {"type": "string", "description": "MCP Server标识，如 gcode-mcp-server/v0.1"},
+      "version": {"type": "string"},
+      "tools": {
+        "type": "array",
+        "items": {"$ref": "#/definitions/MCPToolDefinition"}
+      }
+    }
+  }
+}
