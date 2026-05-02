@@ -1,16 +1,20 @@
 """Gcode 自然语言聊天界面 — 直接打字，无需 JSON/Socket 命令。
 
 用法:
-  gcode                    # 交互模式
+  gcode                    # 交互模式（自动启动后端）
   gcode 查看磁盘空间         # 单次查询
   gcode --history          # 查看历史会话
+  gcode --stop             # 停止后端服务
 """
 
 import io
 import json
 import os
+import signal
 import socket
+import subprocess
 import sys
+import time
 import uuid
 from datetime import datetime
 
@@ -21,6 +25,120 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 SOCKET_PATH = os.environ.get("GCODE_SOCKET", "/run/gcode/gcode.sock")
+PID_DIR = "/run/gcode"
+GUARD_PID_FILE = os.path.join(PID_DIR, "gcode-guard.pid")
+MCP_PID_FILE = os.path.join(PID_DIR, "gcode-mcp.pid")
+GCODE_DIR = os.environ.get("GCODE_DIR", "/opt/gcode")
+
+
+def _is_socket_alive(path: str) -> bool:
+    """检查 Unix Socket 是否可连接"""
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        sock.connect(path)
+        sock.close()
+        return True
+    except (FileNotFoundError, ConnectionRefusedError, socket.timeout, OSError):
+        return False
+
+
+def _read_pid(pid_file: str) -> int | None:
+    """读取 PID 文件"""
+    try:
+        with open(pid_file) as f:
+            pid = int(f.read().strip())
+        # 检查进程是否还活着
+        os.kill(pid, 0)
+        return pid
+    except (FileNotFoundError, ValueError, ProcessLookupError, PermissionError):
+        return None
+
+
+def _start_backend() -> bool:
+    """自动启动后端服务"""
+    # 确保 socket 目录存在
+    os.makedirs(PID_DIR, mode=0o770, exist_ok=True)
+
+    python = os.path.join(GCODE_DIR, ".venv", "bin", "python")
+    if not os.path.isfile(python):
+        python = "python3"
+
+    started = False
+
+    # 启动 Security Guard
+    if not _read_pid(GUARD_PID_FILE):
+        print("  启动安全层 (security-guard)...")
+        proc = subprocess.Popen(
+            [python, "-m", "src.api.server"],
+            cwd=GCODE_DIR,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        with open(GUARD_PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+        started = True
+
+    # 启动 MCP Server
+    if not _read_pid(MCP_PID_FILE):
+        print("  启动执行层 (mcp-server)...")
+        proc = subprocess.Popen(
+            [python, "-m", "gcode.mcp.server"],
+            cwd=GCODE_DIR,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        with open(MCP_PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+        started = True
+
+    if started:
+        # 等待 socket 就绪
+        print("  等待服务就绪...")
+        for _ in range(15):
+            time.sleep(1)
+            if _is_socket_alive(SOCKET_PATH):
+                print("  服务已就绪\n")
+                return True
+        print("  [警告] 服务启动超时，可能需要手动检查\n")
+        return False
+
+    return True
+
+
+def stop_backend():
+    """停止后端服务"""
+    stopped = False
+    for name, pid_file in [("security-guard", GUARD_PID_FILE), ("mcp-server", MCP_PID_FILE)]:
+        pid = _read_pid(pid_file)
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                print(f"  已停止 {name} (PID {pid})")
+                stopped = True
+            except ProcessLookupError:
+                pass
+            try:
+                os.remove(pid_file)
+            except FileNotFoundError:
+                pass
+    if not stopped:
+        print("  没有运行中的后端服务")
+    else:
+        # 清理 socket
+        try:
+            os.remove(SOCKET_PATH)
+        except FileNotFoundError:
+            pass
+
+
+def ensure_backend():
+    """确保后端服务正在运行"""
+    if _is_socket_alive(SOCKET_PATH):
+        return True
+    return _start_backend()
 
 
 def send_query(query: str, user_id: str = "admin", session_id: str | None = None) -> dict:
@@ -39,9 +157,9 @@ def send_query(query: str, user_id: str = "admin", session_id: str | None = None
         sock.close()
         return json.loads(raw)
     except FileNotFoundError:
-        return {"status": "error", "error": "Gcode 服务未启动。请运行: sudo systemctl start gcode-security-guard gcode-mcp-server"}
+        return {"status": "error", "error": "Gcode 服务未启动。请运行: gcode（会自动启动服务）"}
     except ConnectionRefusedError:
-        return {"status": "error", "error": "无法连接到 Gcode 服务。请检查服务状态: systemctl status gcode-security-guard"}
+        return {"status": "error", "error": "无法连接到 Gcode 服务，后端可能正在启动中，请稍后重试"}
     except socket.timeout:
         return {"status": "error", "error": "请求超时，请重试"}
 
@@ -179,13 +297,21 @@ def main():
     parser.add_argument("--user", "-u", default="admin", help="用户名")
     parser.add_argument("--socket", "-s", default=SOCKET_PATH, help="Unix Socket 路径")
     parser.add_argument("--history", action="store_true", help="查看审计记录")
+    parser.add_argument("--stop", action="store_true", help="停止后端服务")
     args = parser.parse_args()
 
     SOCKET_PATH = args.socket
 
+    if args.stop:
+        stop_backend()
+        return
+
     if args.history:
         show_history()
         return
+
+    # 确保后端服务运行
+    ensure_backend()
 
     if args.query:
         # 单次查询模式
