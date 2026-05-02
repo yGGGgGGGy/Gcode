@@ -17,6 +17,13 @@ echo "=== Gcode 智能运维Agent 部署 ==="
 echo "源码目录: ${PROJECT_DIR}"
 echo "安装目录: ${GCODE_DIR}"
 
+# 检查 pyproject.toml 是否存在
+if [ ! -f "${PROJECT_DIR}/pyproject.toml" ]; then
+    echo "错误: 找不到 ${PROJECT_DIR}/pyproject.toml"
+    echo "请确保 clone 或复制了完整的 Gcode 项目目录"
+    exit 1
+fi
+
 # 1. 创建用户
 if ! id -u ${GCODE_USER} &>/dev/null; then
     echo "[1/7] 创建用户 ${GCODE_USER}..."
@@ -35,9 +42,15 @@ mkdir -p ${DATA_DIR}/logs
 
 # 3. 复制代码（排除 .git、缓存等）
 echo "[3/7] 复制代码到 ${GCODE_DIR}..."
-rsync -a --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
-      --exclude '.pytest_cache' --exclude '*.egg-info' \
-      "${PROJECT_DIR}/" "${GCODE_DIR}/"
+if command -v rsync &>/dev/null; then
+    rsync -a --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
+          --exclude '.pytest_cache' --exclude '*.egg-info' \
+          "${PROJECT_DIR}/" "${GCODE_DIR}/"
+else
+    echo "rsync 未安装，使用 cp 复制..."
+    cp -r "${PROJECT_DIR}/" "${GCODE_DIR}/"
+    rm -rf "${GCODE_DIR}/.git" "${GCODE_DIR}/__pycache__" "${GCODE_DIR}/"*/*.pyc
+fi
 
 # 4. 安装依赖
 echo "[4/7] 安装 Python 依赖..."
