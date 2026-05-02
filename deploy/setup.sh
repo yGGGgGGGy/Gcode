@@ -85,20 +85,30 @@ chmod +x /usr/local/bin/gcode
 
 # 7. 安装 systemd 服务
 echo "[7/7] 安装 systemd 服务..."
-cp ${GCODE_DIR}/deploy/gcode-security-guard.service /etc/systemd/system/
-cp ${GCODE_DIR}/deploy/gcode-mcp-server.service /etc/systemd/system/
-systemctl daemon-reload
+if pidof systemd > /dev/null 2>&1; then
+    cp ${GCODE_DIR}/deploy/gcode-security-guard.service /etc/systemd/system/
+    cp ${GCODE_DIR}/deploy/gcode-mcp-server.service /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable --now gcode-security-guard gcode-mcp-server 2>/dev/null || true
+else
+    echo "  systemd 不可用（容器/WSL 环境），跳过 systemd 安装"
+    echo "  可手动启动: gcode"
+fi
 
 echo ""
 echo "=== 部署完成 ==="
 echo ""
 echo "现在直接输入:  gcode"
 echo ""
-echo "服务状态:"
-systemctl status gcode-security-guard --no-pager -l 2>/dev/null || true
-echo ""
-systemctl status gcode-mcp-server --no-pager -l 2>/dev/null || true
-echo ""
+if pidof systemd > /dev/null 2>&1; then
+    echo "服务状态:"
+    systemctl status gcode-security-guard --no-pager -l 2>/dev/null || true
+    echo ""
+    systemctl status gcode-mcp-server --no-pager -l 2>/dev/null || true
+    echo ""
+    echo "日志: journalctl -u gcode-security-guard -u gcode-mcp-server -f"
+else
+    echo "  systemd 不可用，请手动启动: gcode"
+fi
 echo "Socket: ${SOCKET_DIR}/gcode.sock"
 echo "数据目录: ${DATA_DIR}"
-echo "日志: journalctl -u gcode-security-guard -u gcode-mcp-server -f"
