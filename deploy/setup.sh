@@ -13,6 +13,8 @@ GCODE_USER="gcode"
 SOCKET_DIR="/run/gcode"
 DATA_DIR="${GCODE_DIR}/data"
 
+HAS_SYSTEMD=0
+
 echo "=== Gcode 智能运维Agent 部署 ==="
 echo "源码目录: ${PROJECT_DIR}"
 echo "安装目录: ${GCODE_DIR}"
@@ -24,16 +26,40 @@ if [ ! -f "${PROJECT_DIR}/pyproject.toml" ]; then
     exit 1
 fi
 
+# 0. 检查并安装 systemd
+echo "[0/8] 检查 systemd..."
+if pidof systemd > /dev/null 2>&1; then
+    echo "  systemd 已运行"
+    HAS_SYSTEMD=1
+elif command -v systemctl &>/dev/null; then
+    echo "  systemctl 已安装但未运行（可能是容器）"
+else
+    echo "  systemd 未安装，尝试安装..."
+    if command -v dnf &>/dev/null; then
+        dnf install -y systemd || true
+    elif command -v yum &>/dev/null; then
+        yum install -y systemd || true
+    elif command -v apt-get &>/dev/null; then
+        apt-get update && apt-get install -y systemd || true
+    fi
+    if command -v systemctl &>/dev/null; then
+        echo "  systemd 安装成功"
+        HAS_SYSTEMD=1
+    else
+        echo "  systemd 安装失败，将跳过服务管理"
+    fi
+fi
+
 # 1. 创建用户
 if ! id -u ${GCODE_USER} &>/dev/null; then
-    echo "[1/7] 创建用户 ${GCODE_USER}..."
+    echo "[1/8] 创建用户 ${GCODE_USER}..."
     useradd -r -s /sbin/nologin -d ${GCODE_DIR} ${GCODE_USER}
 else
-    echo "[1/7] 用户 ${GCODE_USER} 已存在"
+    echo "[1/8] 用户 ${GCODE_USER} 已存在"
 fi
 
 # 2. 创建目录
-echo "[2/7] 创建目录..."
+echo "[2/8] 创建目录..."
 mkdir -p ${GCODE_DIR}
 mkdir -p ${SOCKET_DIR}
 mkdir -p ${DATA_DIR}
@@ -41,7 +67,7 @@ mkdir -p ${DATA_DIR}/audit
 mkdir -p ${DATA_DIR}/logs
 
 # 3. 复制代码（排除 .git、缓存等）
-echo "[3/7] 复制代码到 ${GCODE_DIR}..."
+echo "[3/8] 复制代码到 ${GCODE_DIR}..."
 if command -v rsync &>/dev/null; then
     rsync -a --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
           --exclude '.pytest_cache' --exclude '*.egg-info' \
@@ -61,19 +87,18 @@ fi
 echo "  复制完成: $(ls ${GCODE_DIR}/)"
 
 # 4. 安装依赖
-echo "[4/7] 安装 Python 依赖..."
+echo "[4/8] 安装 Python 依赖..."
 cd ${GCODE_DIR}
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --no-cache-dir -e ".[reasoner-openai]" 2>/dev/null || pip install --no-cache-dir -e .
 
-# 5. 安装 gcode CLI 命令（pip install 自动创建）
-echo "[5/7] 安装 gcode 命令..."
-# entry_points 会自动创建 gcode 命令到 .venv/bin/
+# 5. 安装 gcode CLI 命令
+echo "[5/8] 安装 gcode 命令..."
 ln -sf /opt/gcode/.venv/bin/gcode /usr/local/bin/gcode 2>/dev/null || true
 
 # 6. 设置权限
-echo "[6/7] 设置权限..."
+echo "[6/8] 设置权限..."
 chown -R ${GCODE_USER}:${GCODE_USER} ${GCODE_DIR}
 chown -R ${GCODE_USER}:${GCODE_USER} ${SOCKET_DIR}
 chown -R ${GCODE_USER}:${GCODE_USER} ${DATA_DIR}
@@ -83,23 +108,25 @@ chmod 750 ${DATA_DIR}
 chmod +x /usr/local/bin/gcode
 
 # 7. 安装 systemd 服务
-echo "[7/7] 安装 systemd 服务..."
-if pidof systemd > /dev/null 2>&1; then
+echo "[7/8] 安装 systemd 服务..."
+if [ "$HAS_SYSTEMD" -eq 1 ]; then
     cp ${GCODE_DIR}/deploy/gcode-security-guard.service /etc/systemd/system/
     cp ${GCODE_DIR}/deploy/gcode-mcp-server.service /etc/systemd/system/
     systemctl daemon-reload
     systemctl enable --now gcode-security-guard gcode-mcp-server 2>/dev/null || true
 else
-    echo "  systemd 不可用（容器/WSL 环境），跳过 systemd 安装"
+    echo "  systemd 不可用，跳过服务安装"
     echo "  可手动启动: gcode"
 fi
 
+# 8. 启动验证
+echo "[8/8] 验证部署..."
 echo ""
 echo "=== 部署完成 ==="
 echo ""
 echo "现在直接输入:  gcode"
 echo ""
-if pidof systemd > /dev/null 2>&1; then
+if [ "$HAS_SYSTEMD" -eq 1 ]; then
     echo "服务状态:"
     systemctl status gcode-security-guard --no-pager -l 2>/dev/null || true
     echo ""
