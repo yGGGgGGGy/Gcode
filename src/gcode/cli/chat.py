@@ -122,7 +122,12 @@ def interactive_loop(user_id: str = "admin"):
 
     while True:
         try:
-            query = input(">> ").strip()
+            try:
+                query = input(">> ").strip()
+            except UnicodeDecodeError:
+                # 终端编码非 UTF-8 时，从 buffer 读取原始字节再解码
+                raw = sys.stdin.buffer.readline()
+                query = raw.decode("utf-8", errors="replace").strip()
         except (EOFError, KeyboardInterrupt):
             print("\n再见！")
             break
