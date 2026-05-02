@@ -26,6 +26,9 @@ dev = [
 requires = ["setuptools>=64.0"]
 build-backend = "setuptools.build_meta"
 
+[project.scripts]
+gcode = "gcode.cli.chat:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
