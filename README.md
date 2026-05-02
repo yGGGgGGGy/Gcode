@@ -441,6 +441,8 @@ Gcode/
 │       │   ├── tools_readonly.py    #   只读感知 Tool (5个)
 │       │   ├── tools_metrics.py     #   指标采集 Tool (4个)
 │       │   └── tools_management.py  #   管理执行 Tool (3个)
+│       ├── cli/                     #   💬 CLI 入口
+│       │   └── chat.py              #   自然语言交互 + 单次查询
 │       ├── reasoning/               #   🧠 推理层 (多模型 LLM)
 │       │   ├── reasoner.py          #   LLM 推理 + Tool 选择
 │       │   ├── tool_registry.py     #   Tool 注册表
@@ -450,8 +452,7 @@ Gcode/
 │       │   └── types.py
 │       ├── alert/                   #   告警引擎
 │       ├── logpipe/                 #   日志管道 + 异常检测
-│       ├── monitor/                 #   系统监控
-│       └── core/                    #   Runbook 引擎 + Session 管理
+│       └── monitor/                 #   系统监控
 ├── tests/                           #   单元测试
 ├── pyproject.toml                   #   项目配置 + 依赖声明
 ├── Makefile                         #   常用命令
