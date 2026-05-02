@@ -8,9 +8,15 @@ dependencies = [
     "torch>=2.4",
     "mcp>=1.0.0",
     "psutil>=5.9.0",
+    "click>=8.1",
+    "rich>=13.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
+reasoner-openai = ["openai>=1.0"]
+reasoner-anthropic = ["anthropic>=0.30"]
+reasoner = ["openai>=1.0", "anthropic>=0.30"]
 dev = [
     "pytest>=8",
     "ruff>=0.8",
