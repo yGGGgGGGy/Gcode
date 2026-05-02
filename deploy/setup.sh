@@ -14,8 +14,11 @@ SOCKET_DIR="/run/gcode"
 DATA_DIR="${GCODE_DIR}/data"
 
 echo "=== Gcode 智能运维Agent 部署 ==="
+echo "脚本位置: ${BASH_SOURCE[0]}"
 echo "源码目录: ${PROJECT_DIR}"
 echo "安装目录: ${GCODE_DIR}"
+echo "当前目录: $(pwd)"
+echo "目录内容: $(ls ${PROJECT_DIR}/)"
 
 # 检查 pyproject.toml 是否存在
 if [ ! -f "${PROJECT_DIR}/pyproject.toml" ]; then
@@ -42,19 +45,28 @@ mkdir -p ${DATA_DIR}/logs
 
 # 3. 复制代码（排除 .git、缓存等）
 echo "[3/7] 复制代码到 ${GCODE_DIR}..."
+echo "  源目录内容: $(ls ${PROJECT_DIR}/pyproject.toml 2>&1)"
 if command -v rsync &>/dev/null; then
-    rsync -a --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
+    rsync -av --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
           --exclude '.pytest_cache' --exclude '*.egg-info' \
           "${PROJECT_DIR}/" "${GCODE_DIR}/"
 else
     echo "rsync 未安装，使用 cp 复制..."
-    cp -r "${PROJECT_DIR}/" "${GCODE_DIR}/"
+    cp -rv "${PROJECT_DIR}/" "${GCODE_DIR}/"
     rm -rf "${GCODE_DIR}/.git" "${GCODE_DIR}/__pycache__" "${GCODE_DIR}/"*/*.pyc
 fi
+echo "  目标目录内容: $(ls ${GCODE_DIR}/pyproject.toml 2>&1)"
 
 # 4. 安装依赖
 echo "[4/7] 安装 Python 依赖..."
 cd ${GCODE_DIR}
+echo "  当前目录: $(pwd)"
+echo "  pyproject.toml: $(ls -la pyproject.toml 2>&1)"
+if [ ! -f "pyproject.toml" ]; then
+    echo "错误: 复制后 ${GCODE_DIR}/pyproject.toml 仍不存在，复制可能失败"
+    echo "目录内容: $(ls -la)"
+    exit 1
+fi
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[reasoner-openai]" 2>/dev/null || pip install -e .
