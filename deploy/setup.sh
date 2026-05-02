@@ -65,8 +65,7 @@ echo "[4/7] 安装 Python 依赖..."
 cd ${GCODE_DIR}
 python3 -m venv .venv
 source .venv/bin/activate
-pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com -e ".[reasoner-openai]" 2>/dev/null || \
-pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com -e .
+pip install --no-cache-dir -e ".[reasoner-openai]" 2>/dev/null || pip install --no-cache-dir -e .
 
 # 5. 安装 gcode CLI 命令（pip install 自动创建）
 echo "[5/7] 安装 gcode 命令..."

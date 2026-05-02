@@ -161,6 +161,7 @@ def show_history():
 
 def main():
     import argparse
+    global SOCKET_PATH
     parser = argparse.ArgumentParser(description="Gcode 智能运维 Agent — 自然语言操作系统")
     parser.add_argument("query", nargs="*", help="运维问题（自然语言）")
     parser.add_argument("--user", "-u", default="admin", help="用户名")
@@ -168,7 +169,6 @@ def main():
     parser.add_argument("--history", action="store_true", help="查看审计记录")
     args = parser.parse_args()
 
-    global SOCKET_PATH
     SOCKET_PATH = args.socket
 
     if args.history:
