@@ -281,60 +281,63 @@ pip install ".[reasoner]"            # 全部
 
 ## 使用方法
 
-### 命令行
+安装完成后，直接用 `gcode` 命令：
 
 ```bash
-# 启动安全层 (一个终端)
-make run-guard
-
-# 启动执行层 (另一个终端)
-make run-mcp
-
-# 运行测试
-make test
+gcode
 ```
 
-### Socket 接口
+进入交互模式：
+
+```
+  ╔══════════════════════════════════╗
+  ║      Gcode 智能运维Agent        ║
+  ║   用自然语言管理麒麟OS服务器      ║
+  ╚══════════════════════════════════╝
+
+  输入问题开始，例如:
+    · 查看磁盘空间
+    · CPU 使用率多少
+    · nginx 服务状态怎么样
+
+  输入 quit 或 Ctrl+C 退出
+```
+
+然后直接打中文就行，例如：
+
+```
+>> 查看磁盘空间
+Filesystem  Size  Used Avail Use% Mounted on
+/dev/sda1   50G   20G   28G  42% /
+
+>> CPU 使用率多少
+{'percent': 3.2, 'per_cpu': [2.1, 4.5, 3.0, 3.3], 'count': 4}
+
+>> 重启 nginx
+[预览]
+nginx.service - nginx HTTP server
+   Active: active (running)
+[需要确认才能执行]
+
+>> 帮我看看 /var/log/messages 最近10条日志
+May  1 10:23:45 kylin kernel: ...
+```
+
+### 单次查询模式
 
 ```bash
-# 发送运维请求
-echo '{"query":"查看磁盘使用情况","user_id":"admin"}' \
-  | socat - UNIX-CONNECT:/run/gcode/gcode.sock
-
-# 返回示例
-{
-  "status": "success",
-  "data": {
-    "stdout": "Filesystem  Size  Used Avail Use% Mounted on\n/dev/sda1  50G   20G   28G  42% /",
-    "rc": 0
-  },
-  "audit_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-}
+# 直接带问题执行，不用进入交互
+gcode 查看磁盘空间
+gcode nginx 服务状态
+gcode 帮我看看内存使用
 ```
 
-### Python 客户端示例
+### 开发模式
 
-```python
-import socket
-import json
-
-def gcode_query(query: str, user_id: str = "admin") -> dict:
-    """向 Gcode 发送运维查询"""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect("/run/gcode/gcode.sock")
-    
-    request = {
-        "query": query,
-        "user_id": user_id,
-    }
-    sock.sendall(json.dumps(request).encode() + b"\n")
-    raw = sock.recv(65536)
-    sock.close()
-    return json.loads(raw)
-
-# 使用示例
-result = gcode_query("nginx 服务状态怎么样")
-print(result["data"]["stdout"])
+```bash
+make test      # 运行测试
+make run-guard # 启动安全层（单独调试）
+make run-mcp   # 启动执行层（单独调试）
 ```
 
 ---
