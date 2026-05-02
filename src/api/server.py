@@ -1,9 +1,9 @@
-"""Unix Domain Socket 服务器 — 接入层 + 推理层入口。
+"""Unix Domain Socket 服务器 — 接入层 + 直接执行。
 
 架构:
   用户请求 → Unix Socket → api/server.py
     → intent/classifier.py (意图过滤)
-      → [safe] → 转发给dp1 MCP Server (Unix Socket client)
+      → [safe] → tool_dispatcher.py (直接执行工具)
       → [unsafe] → 拒绝
       → [needs-review] → 拒绝，建议人工审核
     → audit/logger.py (全量记录)
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import socket
 import uuid
 from typing import Any
@@ -22,22 +23,48 @@ from ..intent.classifier import IntentClassifier
 from ..contracts.types import SessionContext, ToolCallRecord
 
 SOCKET_PATH = "/run/gcode/gcode.sock"
-DP1_SOCKET_PATH = "/run/gcode/gcode-dp1.sock"
+
+# 关键词 → 工具映射
+_KEYWORD_TOOL_MAP = [
+    (r"磁盘|空间|存储|df\b|disk", "df_h"),
+    (r"cpu|处理器", "cpu_usage"),
+    (r"内存|mem|ram", "mem_usage"),
+    (r"io|磁盘读写|iostat", "io_stat"),
+    (r"进程|ps\b|top\b|运行中", "ps_list"),
+    (r"网络|端口|连接|netstat|ss\b", "netstat"),
+    (r"系统信息|内核|版本|uname|主机名", "sys_info"),
+    (r"日志|log|journalctl", "journalctl"),
+    (r"服务.*状态|status.*service|nginx.*状态|systemctl\s+status", "service_status"),
+    (r"重启.*服务|restart.*service|重启.*nginx|systemctl\s+restart", "service_restart"),
+    (r"安装|装.*包|yum\s+install|dnf\s+install", "pkg_install"),
+]
+
+
+def _match_tool(query: str) -> tuple[str, dict]:
+    """根据用户输入匹配工具和参数。"""
+    for pattern, tool_name in _KEYWORD_TOOL_MAP:
+        if re.search(pattern, query, re.IGNORECASE):
+            params = {}
+            # 提取服务名
+            if tool_name in ("service_status", "service_restart"):
+                m = re.search(r"(?:重启|查看|检查|status|restart)\s*(\S+)", query)
+                if m:
+                    params["name"] = m.group(1)
+            # 提取日志行数
+            if tool_name == "journalctl":
+                m = re.search(r"(\d+)\s*条", query)
+                if m:
+                    params["lines"] = int(m.group(1))
+            return tool_name, params
+    # 默认返回系统信息
+    return "sys_info", {}
 
 
 class GcodeServer:
-    """Gcode安全守卫服务器。
+    """Gcode安全守卫服务器。"""
 
-    监听Unix Domain Socket，接收用户请求，执行意图过滤后转发给dp1执行层。
-    """
-
-    def __init__(
-        self,
-        socket_path: str = SOCKET_PATH,
-        dp1_socket_path: str = DP1_SOCKET_PATH,
-    ):
+    def __init__(self, socket_path: str = SOCKET_PATH):
         self._socket_path = socket_path
-        self._dp1_socket_path = dp1_socket_path
         self._classifier = IntentClassifier()
         self._audit = AuditLogger()
         self._sock: socket.socket | None = None
@@ -46,10 +73,8 @@ class GcodeServer:
         """启动服务器。"""
         self._classifier.load()
 
-        # 确保socket目录存在
         os.makedirs(os.path.dirname(self._socket_path), exist_ok=True)
 
-        # 清理旧socket
         try:
             os.unlink(self._socket_path)
         except OSError:
@@ -79,7 +104,7 @@ class GcodeServer:
                 conn.close()
 
     def _handle(self, conn: socket.SocketType) -> None:
-        """处理单条请求: 意图过滤 → 转发执行 → 审计记录。"""
+        """处理单条请求: 意图过滤 → 匹配工具 → 执行 → 审计记录。"""
         raw = conn.recv(65536)
         if not raw:
             return
@@ -105,12 +130,9 @@ class GcodeServer:
             # Step 2: 安全决策
             if classification.intent == "unsafe":
                 self._audit.finalize(
-                    record,
-                    tools_called=[],
-                    request_ids=[],
+                    record, tools_called=[], request_ids=[],
                     results_summary="Rejected by intent filter",
-                    final_status="rejected_by_intent",
-                    duration_total_ms=0,
+                    final_status="rejected_by_intent", duration_total_ms=0,
                 )
                 self._send_json(conn, {
                     "status": "rejected",
@@ -121,12 +143,9 @@ class GcodeServer:
 
             if classification.intent == "needs-review":
                 self._audit.finalize(
-                    record,
-                    tools_called=[],
-                    request_ids=[],
+                    record, tools_called=[], request_ids=[],
                     results_summary="Needs human review",
-                    final_status="rejected_by_intent",
-                    duration_total_ms=0,
+                    final_status="rejected_by_intent", duration_total_ms=0,
                 )
                 self._send_json(conn, {
                     "status": "needs_review",
@@ -135,20 +154,36 @@ class GcodeServer:
                 })
                 return
 
-            # Step 3: safe — 构建SessionContext，转发给dp1
-            ctx = self._build_session_context(request, classification)
-            self._audit.trace_event(record, f"Forwarding to dp1 with SessionContext: {ctx.to_dict()}")
+            # Step 3: safe — 匹配工具并执行
+            tool_name, params = _match_tool(query)
+            self._audit.trace_event(record, f"Matched tool: {tool_name} params: {params}")
 
-            result, tool_records = self._forward_to_dp1(ctx, ctx.filtered_input, {})
-            tools_called = [r.tool_name for r in tool_records]
-            request_ids = [r.audit_id for r in tool_records]
+            from ..gcode.mcp.tool_dispatcher import dispatch, TOOL_RISK
+            risk_level = TOOL_RISK.get(tool_name, "read_only")
+
+            # 高风险工具需要 dry-run 确认
+            if risk_level == "admin" and params.get("dry_run", True):
+                params["dry_run"] = True
+
+            result = dispatch(tool_name, params)
+
+            tool_record = ToolCallRecord(
+                audit_id=str(uuid.uuid4()),
+                session_id=session_id,
+                step_id=str(uuid.uuid4()),
+                parent_step_id=None,
+                tool_name=tool_name,
+                params=params,
+                risk_level=risk_level,
+                timestamp=0,
+            )
 
             self._audit.finalize(
                 record,
-                tools_called=tools_called,
-                request_ids=request_ids,
-                results_summary=json.dumps(result, ensure_ascii=False),
-                final_status="success" if result.get("status") != "error" else "execution_error",
+                tools_called=[tool_name],
+                request_ids=[tool_record.audit_id],
+                results_summary=json.dumps(result, ensure_ascii=False)[:500],
+                final_status="success" if result.get("success") else "execution_error",
                 duration_total_ms=record.duration_total_ms,
             )
 
@@ -157,51 +192,6 @@ class GcodeServer:
                 "data": result,
                 "audit_id": record.audit_id,
             })
-
-    def _build_session_context(self, request: dict, classification: Any) -> SessionContext:
-        """从意图分类结果构建 dp1 所需的 SessionContext。"""
-        session_id = request.get("session_id", str(uuid.uuid4()))
-        user_id = request.get("user_id", "unknown")
-        query = request.get("query", "")
-
-        return SessionContext(
-            session_id=session_id,
-            filtered_input=query,
-            risk_score=1.0 - classification.confidence,
-            risk_verdict=classification.intent,
-            capability_set=classification.categories,
-            reason=f"Intent: {classification.top_label} (conf={classification.confidence:.2f})",
-            user_id=user_id,
-        )
-
-    def _forward_to_dp1(self, ctx: SessionContext, tool_name: str, params: dict) -> tuple[dict, list[ToolCallRecord]]:
-        """转发请求给dp1 MCP Server，返回 (原始响应, ToolCallRecord列表)。"""
-        try:
-            dp1_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            dp1_sock.settimeout(30)
-            dp1_sock.connect(self._dp1_socket_path)
-
-            dp1_sock.sendall(json.dumps(ctx.to_dict()).encode() + b"\n")
-
-            raw = dp1_sock.recv(65536)
-            dp1_sock.close()
-            response_data = json.loads(raw)
-
-            # 提取 ToolCallRecord 供审计
-            records = self._extract_tool_records(response_data, ctx.session_id)
-            return response_data, records
-        except FileNotFoundError:
-            return {"error": "MCP Server (dp1) not available", "status": "error"}, []
-        except Exception as e:
-            return {"error": str(e), "status": "error"}, []
-
-    @staticmethod
-    def _extract_tool_records(response: dict, session_id: str) -> list[ToolCallRecord]:
-        """从dp1响应中提取ToolCallRecord列表。"""
-        raw_records = response.get("tool_calls", [])
-        if isinstance(raw_records, list):
-            return [ToolCallRecord.from_dict(r) for r in raw_records]
-        return []
 
     @staticmethod
     def _send_json(conn: socket.SocketType, data: dict) -> None:
