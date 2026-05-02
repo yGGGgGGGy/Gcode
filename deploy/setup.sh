@@ -28,26 +28,38 @@ fi
 
 # 0. 检查并安装 systemd
 echo "[0/8] 检查 systemd..."
-if pidof systemd > /dev/null 2>&1; then
-    echo "  systemd 已运行"
+# 无论当前状态如何，先确保 systemd 包已安装
+if ! command -v systemctl &>/dev/null; then
+    echo "  systemctl 未找到，安装 systemd..."
+    if command -v dnf &>/dev/null; then
+        dnf install -y systemd
+    elif command -v yum &>/dev/null; then
+        yum install -y systemd
+    elif command -v apt-get &>/dev/null; then
+        apt-get update && apt-get install -y systemd
+    else
+        echo "  无法识别包管理器，请手动安装 systemd"
+    fi
+fi
+
+# 检查 systemd 是否作为 init 系统运行
+if pidof systemd > /dev/null 2>&1 && [ "$(cat /proc/1/comm 2>/dev/null)" = "systemd" ]; then
+    echo "  systemd 正常运行"
     HAS_SYSTEMD=1
 elif command -v systemctl &>/dev/null; then
-    echo "  systemctl 已安装但未运行（可能是容器）"
+    # systemctl 存在但 systemd 不是 PID 1，尝试启动
+    echo "  systemd 已安装但未作为 init 运行，尝试启动..."
+    if systemd --system &>/dev/null & then
+        sleep 2
+        if systemctl is-system-running 2>/dev/null | grep -qE "running|degraded"; then
+            echo "  systemd 启动成功"
+            HAS_SYSTEMD=1
+        else
+            echo "  systemd 无法在此环境启动（容器/WSL），将手动管理服务"
+        fi
+    fi
 else
-    echo "  systemd 未安装，尝试安装..."
-    if command -v dnf &>/dev/null; then
-        dnf install -y systemd || true
-    elif command -v yum &>/dev/null; then
-        yum install -y systemd || true
-    elif command -v apt-get &>/dev/null; then
-        apt-get update && apt-get install -y systemd || true
-    fi
-    if command -v systemctl &>/dev/null; then
-        echo "  systemd 安装成功"
-        HAS_SYSTEMD=1
-    else
-        echo "  systemd 安装失败，将跳过服务管理"
-    fi
+    echo "  systemd 安装失败，将跳过服务管理"
 fi
 
 # 1. 创建用户
