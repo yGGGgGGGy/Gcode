@@ -6,7 +6,12 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
+
+# 国内 Hugging Face 镜像（可通过环境变量覆盖）
+if "HF_ENDPOINT" not in os.environ:
+    os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 # 意图标签体系
 INTENT_LABELS = [
