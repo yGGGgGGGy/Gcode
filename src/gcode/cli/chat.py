@@ -6,12 +6,19 @@
   gcode --history          # 查看历史会话
 """
 
+import io
 import json
 import os
 import socket
 import sys
 import uuid
 from datetime import datetime
+
+# 强制 stdin/stdout 使用 UTF-8（兼容 locale 未设置的环境）
+if sys.stdin.encoding and sys.stdin.encoding.lower() != "utf-8":
+    sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8", errors="replace")
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 SOCKET_PATH = os.environ.get("GCODE_SOCKET", "/run/gcode/gcode.sock")
 
