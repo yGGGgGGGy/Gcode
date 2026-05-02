@@ -21,6 +21,7 @@ from typing import Any
 from ..audit.logger import AuditLogger
 from ..intent.classifier import IntentClassifier
 from ..contracts.types import SessionContext, ToolCallRecord
+from ..gcode.mcp.tool_dispatcher import dispatch, TOOL_RISK
 
 SOCKET_PATH = "/run/gcode/gcode.sock"
 
@@ -100,6 +101,10 @@ class GcodeServer:
                 self._handle(conn)
             except Exception as e:
                 print(f"Handler error: {e}")
+                try:
+                    self._send_json(conn, {"status": "error", "error": str(e)})
+                except Exception:
+                    pass
             finally:
                 conn.close()
 
@@ -109,7 +114,11 @@ class GcodeServer:
         if not raw:
             return
 
-        request = json.loads(raw)
+        try:
+            request = json.loads(raw)
+        except json.JSONDecodeError:
+            self._send_json(conn, {"status": "error", "error": "无效的 JSON 请求"})
+            return
         session_id = request.get("session_id", str(uuid.uuid4()))
         user_id = request.get("user_id", "unknown")
         query = request.get("query", "")
@@ -158,7 +167,6 @@ class GcodeServer:
             tool_name, params = _match_tool(query)
             self._audit.trace_event(record, f"Matched tool: {tool_name} params: {params}")
 
-            from ..gcode.mcp.tool_dispatcher import dispatch, TOOL_RISK
             risk_level = TOOL_RISK.get(tool_name, "read_only")
 
             # 高风险工具需要 dry-run 确认
