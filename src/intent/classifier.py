@@ -90,10 +90,21 @@ class IntentClassifier:
 
     def classify(self, query: str) -> IntentClassification:
         self.load()
-        if self._model._pipeline is not None:
-            result = self._model.classify(query)
-        else:
-            result = _regex_classify(query)
+        # 优先使用正则分类器（快速可靠）
+        result = _regex_classify(query)
+        top_label: str = result["labels"][0]
+        top_score: float = result["scores"][0]
+        # 如果正则无法判断（needs_review），且模型可用，再用模型
+        if "needs_review" in top_label and self._model._pipeline is not None:
+            try:
+                model_result = self._model.classify(query)
+                model_label = model_result["labels"][0]
+                model_mapped = INTENT_MAPPING.get(model_label, "needs-review")
+                # 模型结果只有在判定为 safe 时才采纳
+                if model_mapped == "safe":
+                    result = model_result
+            except Exception:
+                pass  # 模型推理失败，继续用正则结果
 
         top_label: str = result["labels"][0]
         top_score: float = result["scores"][0]
